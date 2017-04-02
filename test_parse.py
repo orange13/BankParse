@@ -111,7 +111,6 @@ def binbank():
             offices = requests.get('https://www.binbank.ru/branches/offices/list/',cookies=cookie)
             list = new_office(offices.text, city_name)
             write_to_excel(list)
-
 #Alfa
 def alpha_bankomats():
     r = requests.get('https://alfabank.ru/ext-json/0.2/office/city?limit=500&mode=array')
@@ -199,7 +198,6 @@ def alpha_otdelenie():
                 result_list.append(dict)
 
     return result_list
-
 #VTB24
 def vtb_bankomati():
     region_list = []
@@ -328,7 +326,6 @@ def vtb_offices():
 
                 result_list.append(dict)
     return result_list
-
 #Bank Rossiya
 def ros_bankomati():
     result_list = []
@@ -389,7 +386,6 @@ def ros_offices():
                 break
 
     return result_list
-
 #Bank Rs Standart
 def rs_bankomati():
     result_list = []
@@ -765,8 +761,7 @@ def mts_bankomats():
 
             result_list.append(dict)
     return result_list
-
-
+#Trast Bank
 def trast_bankomats():
     result_list = []
     r = requests.get('http://www.trust.ru/address/')
@@ -804,7 +799,6 @@ def trast_bankomats():
             result_list.append(dict)
 
     return result_list
-
 def trast_offices():
     result_list = []
     r = requests.get('http://www.trust.ru/address/')
@@ -843,6 +837,276 @@ def trast_offices():
             result_list.append(dict)
 
     return result_list
+#Novibank
+def novikom_bankomats():
+    result_list = []
+    r = requests.get('http://novikom.ru/ru/contacts/bankomats/')
+    soap = BeautifulSoup(r.text,'lxml')
+    pre_all_bankomats = BeautifulSoup(str(soap.find_all('table',{'class':'bankomat'})),'lxml')
 
-list = trast_offices()
-write_to_excel(list,'trast-offices.csv')
+    all_bankomats = pre_all_bankomats.find_all('tr')
+    for bankomat in all_bankomats:
+        dict = {"bank": "Траст Банк", "otdelenie": "Банкомат", "uslugi": "", "region": '', "city": '',
+                "address": "",
+                "telephone": "", "work_time": "", "add_telephone": ""}
+        fields = bankomat.find_all('td')
+        try:
+            dict['otdelenie'] = re.sub('<td>|<br/>|</td>','',str(fields[0]))
+        except:
+            continue
+        dict['address'] = re.sub('<td>|<br/>|</td>','',str(fields[1]))
+        dict['uslugi'] = re.sub('RUB|USD|EUR|\/|<td>|<br/>|</td>','',str(fields[2]))
+        dict['work_time'] = re.sub('<td>|</td>','',str(fields[3]))
+        result_list.append(dict)
+
+    return result_list
+#OTP Bank
+def otp_bankomats():
+    result_list = []
+    r = requests.get('https://www.otpbank.ru/retail/branches/')
+    cities_soap = BeautifulSoup(r.text, 'lxml')
+    cities = cities_soap.find_all('li', {'class': 'city-list__item'})
+    for city in cities:
+        city_name = re.sub('[\r\n\t]', '', city.text)
+        href = city.a.get('href')
+        r = requests.get('https://www.otpbank.ru/%s'%href)
+        soap = BeautifulSoup(r.text,'lxml')
+        all_bankomats = soap.find_all('div',{'class':re.compile('offices-list__item offices-list__item_visible-hide category-[94,96]')})
+        for bankomat in all_bankomats:
+            dict = {"bank": "ОТП Банк", "otdelenie": "Банкомат", "uslugi": "", "region": '', "city": '',
+                    "address": "",
+                    "telephone": "", "work_time": "", "add_telephone": ""}
+            href = bankomat.a.get('href')
+            new_r = requests.get('https://www.otpbank.ru%s'%href)
+            bankomat_soap = BeautifulSoup(new_r.text,'lxml')
+            fields = bankomat_soap.find('div',{'class':'content-block text'}).find_all('p')
+            dict['address'] = re.sub('<p>|<b>|Адрес|\:|</b>|</p>|[0-9,]{6,7}','',str(fields[0])).replace(';','')
+            try:
+                dict['work_time'] = re.sub('[\r\t\n]|<p>|</p>|<strong>|</strong>|\|','',str(fields[1])).replace(';','')
+            except:
+                pass
+            if new_r.text.count('выдача')>0:
+                dict['uslugi'] += " Выдача наличных"
+            if new_r.text.count('прием')>0:
+                dict['uslugi'] += " Внесение наличных"
+            dict['city']=city_name
+            result_list.append(dict)
+    return result_list
+def otp_offices():
+    result_list = []
+    r = requests.get('https://www.otpbank.ru/retail/branches/')
+    cities_soap = BeautifulSoup(r.text, 'lxml')
+    cities = cities_soap.find_all('li', {'class': 'city-list__item'})
+    count = 0
+    for city in cities:
+        count += 1
+        city_name = re.sub('[\r\n\t]', '', city.text)
+        href = city.a.get('href')
+        r = requests.get('https://www.otpbank.ru/%s'%href)
+        soap = BeautifulSoup(r.text,'lxml')
+        all_bankomats = soap.find_all('div',{'class':re.compile('offices-list__item offices-list__item_visible-hide category-87')})
+        for bankomat in all_bankomats:
+
+            href = bankomat.a.get('href')
+            new_r = requests.get('https://www.otpbank.ru%s'%href)
+            bankomat_soap = BeautifulSoup(new_r.text,'lxml')
+            otdelenie = re.sub('[\n\t\r]','',bankomat_soap.h2.text)
+            fields = bankomat_soap.find('div',{'class':'content-block text'}).find_all('p')
+            with open('otp-banks','a') as out:
+                out.write(str(fields)+str(otdelenie)+"\n\n\n")
+
+    return result_list
+#ПромСвязьБанк
+def promsvaz_bankomats():
+    result_list = []
+    r = requests.get('http://www.psbank.ru/psbservices/SearchService.svc/GetAllATMsAndOfficesInBounds?firstLatitude=0&firstLongitude=0&secondLatitude=170&secondLongitude=170&atmStatuses=null&officeOperations=null&textFilter=null&recordsOffset=0&recordsCount=1')
+    all_bankomats = r.json()['Atms']
+    print(len(all_bankomats))
+    for bankomat in all_bankomats:
+        dict = {"bank": "Промсвязьбанк", "otdelenie": "Банкомат", "uslugi": "", "region": '', "city": '',
+                "address": "",
+                "telephone": "", "work_time": "", "add_telephone": ""}
+        if bankomat['Owner']=='Промсвязьбанк':
+            pass
+        else:
+            continue
+        dict['city'] = bankomat['City']
+        dict['address'] = bankomat['Address']
+
+        if bankomat['HourseOfService']==[]:
+            dict['work_time'] = "В режиме работы организации"
+        else:
+            for item in bankomat['HourseOfService']:
+                dict['work_time'] += ' '+item['Key']+item['Value']
+
+        try:
+            if 6 in bankomat['Operations'] : dict['uslugi'] += ' Внесение наличных'
+            if 2 in bankomat['Operations'] : dict['uslugi'] += ' Выдача наличных'
+        except:
+            pass
+        result_list.append(dict)
+    return result_list
+def promsvaz_offices():
+    result_list = []
+    r = requests.get('http://www.psbank.ru/psbservices/SearchService.svc/GetAllATMsAndOfficesInBounds?firstLatitude=0&firstLongitude=0&secondLatitude=170&secondLongitude=170&atmStatuses=null&officeOperations=null&textFilter=null&recordsOffset=0&recordsCount=1')
+    all_bankomats = r.json()['Offices']
+    print(len(all_bankomats))
+    for bankomat in all_bankomats:
+        dict = {"bank": "Промсвязьбанк", "otdelenie": "Банкомат", "uslugi": "", "region": '', "city": '',
+                "address": "",
+                "telephone": "", "work_time": "", "add_telephone": ""}
+        print(bankomat)
+        dict['otdelenie'] = bankomat['Name']
+        dict['city'] = bankomat['City']
+        dict['address'] = bankomat['Address']
+        dict['telephone'] = '8 800 333 03 03'
+        if bankomat['HourseOfService']==[]:
+            dict['work_time'] = "В режиме работы организации"
+        else:
+            for item in bankomat['HourseOfService']:
+                dict['work_time'] += ' '+item['Key']+item['Value']
+
+        result_list.append(dict)
+    return result_list
+#РенесансКредит
+def rencred():
+    result_list = []
+    r = requests.get('https://rencredit.ru')
+    soap = BeautifulSoup(r.text,'lxml')
+    all_cities = soap.find_all('a',{'class':'change-location-window__list-link js-change-location-link'})
+    for city in all_cities:
+        city_id = re.findall('[0-9]{1,3}',city.get('href'))[0]
+        name = city.text
+        r = requests.get('https://rencredit.ru/addresses/?VIEW=list&CITY=%s'%city_id)
+        otdelenie = BeautifulSoup(r.text,'lxml')
+        all_offices = otdelenie.find_all('tr',{'class':'location-table__row'})
+        for office in all_offices:
+            dict = {"bank": "Ренессанс Кредит Банк", "otdelenie": "Банкомат", "uslugi": "", "region": '', "city": '',
+                    "address": "",
+                    "telephone": "", "add_telephone": "", "work_time": "work_time"}
+            try:
+                dict['otdelenie'] = office.find('div',{'class':'location-table__title'}).text
+            except:
+                continue
+
+            dict['address'] = re.sub('.*[0-9,]{6,8}','',office.find('div',{'class':'location-table__address'}).text)
+            telephone_list = office.find_all('span',{'class':'phones-block__row'})
+            try:
+                dict['telephone'] = telephone_list[0].text
+                dict['add_telephone'] = telephone_list[1].text
+            except:
+                pass
+            dict['work_time'] = office.find('div',{'class':'schedule'}).text.replace('\n','<br>')
+            try:
+                dict['uslugi'] = office.find('div',{'class':'location-table__services'}).text
+            except:
+                pass
+            result_list.append(dict)
+    return result_list
+#РосБанк
+def rosbank_bankomats():
+    result_list = []
+    headers={'Accept-Encoding': 'identity'}
+    cities_request = requests.get('http://www.rosbank.ru/ru',headers=headers)
+    cities_pre_soap = BeautifulSoup(cities_request.text,'lxml')
+    cities_soap = cities_pre_soap.find_all('ul',{'class':'city-block__section_list'})
+    for city_soap in cities_soap:
+        city_soap_1 = city_soap.find_all('li')
+        for item in city_soap_1:
+            href = item.a.get('href')
+            href2 = re.findall('[0-9]{1,3}',item.a.get('href'))[0]
+            region_name = item.text
+            print(region_name,href)
+            new_r = requests.get('https://www.rosbank.ru/ru/atms/%s'%href,headers=headers)
+            bankomats_soap = BeautifulSoup(new_r.text,'lxml')
+            all_cities = bankomats_soap.find_all('option', {'value': re.compile('.*')})
+
+            for city in all_cities:
+                headers = {'Accept-Encoding': 'identity',
+                           'Cookie':'regionrb=%s'%href2}
+                print(headers)
+                city_id = city.get('value')
+                city_name = city.text
+                list_for_check = [0]
+                for i in range(0,14):
+                    url = 'http://www.rosbank.ru/ru/atms/list.php?&p_f_2_11=%s&page_13=%s&p_f_2_all=0'%(city_id,str(i))
+                    new_r_2 = requests.get(url, headers=headers)
+                    print(len(new_r_2.content))
+                    list_for_check.append(len(new_r_2.text))
+                    bankomats_soap = BeautifulSoup(new_r_2.text, 'lxml')
+                    all_bankomats = bankomats_soap.find_all('div',{'class':'page-atm__table_row'})
+                    print(len(all_bankomats))
+
+                    for bankomat in all_bankomats:
+                        dict = {"bank": "Рос Банк", "otdelenie": "Банкомат", "uslugi": "", "region": '', "city": '',
+                                "address": "",
+                                "telephone": "", "add_telephone": "", "work_time": "work_time"}
+
+                        dict['region'] = region_name
+                        dict['city'] = city_name
+                        dict['address'] = bankomat.find('div',{'class':'address-title'}).text
+                        dict['work_time'] = re.sub('[\r\n\t]','',bankomat.find('div',{'class':'page-atm__table_col page-atm__table_col--time'}).text).replace(' ','')
+                        if str(bankomat).count('Выдача')>0:
+                            dict['uslugi'] += " Выдача наличных"
+                        if str(bankomat).count('Внесение')>0:
+                            dict['uslugi'] += " Внесение наличных"
+                        result_list.append(dict)
+                        print(dict)
+
+                    if len(all_bankomats)<12 and i!=0:
+                        break
+
+    return result_list
+
+def rosbank_offices():
+    result_list = []
+    headers={'Accept-Encoding': 'identity'}
+    cities_request = requests.get('http://www.rosbank.ru/ru',headers=headers)
+    cities_pre_soap = BeautifulSoup(cities_request.text,'lxml')
+    cities_soap = cities_pre_soap.find_all('ul',{'class':'city-block__section_list'})
+    for city_soap in cities_soap:
+        city_soap_1 = city_soap.find_all('li')
+        for item in city_soap_1:
+            href = item.a.get('href')
+            href2 = re.findall('[0-9]{1,3}',item.a.get('href'))[0]
+            region_name = item.text
+            print(region_name,href)
+            new_r = requests.get('https://www.rosbank.ru/ru/atms/%s'%href,headers=headers)
+            bankomats_soap = BeautifulSoup(new_r.text,'lxml')
+            all_cities = bankomats_soap.find_all('option', {'value': re.compile('.*')})
+
+            for city in all_cities:
+                headers = {'Accept-Encoding': 'identity',
+                           'Cookie':'regionrb=%s'%href2}
+                print(headers)
+                city_id = city.get('value')
+                city_name = city.text
+                list_for_check = [0]
+                for i in range(0,14):
+                    url = 'http://www.rosbank.ru/ru/offices/list.php?p_f_1_12=%s&page_13=%s'%(city_id,str(i))
+                    print(url)
+                    new_r_2 = requests.get(url, headers=headers)
+                    print(len(new_r_2.content))
+                    list_for_check.append(len(new_r_2.text))
+                    bankomats_soap = BeautifulSoup(new_r_2.text, 'lxml')
+                    all_bankomats = bankomats_soap.find_all('div',{'class':'page-atm__table_row'})
+                    print(len(all_bankomats))
+
+                    for bankomat in all_bankomats:
+                        dict = {"bank": "Рос Банк", "otdelenie": "Банкомат", "uslugi": "", "region": '', "city": '',
+                                "address": "",
+                                "telephone": "", "add_telephone": "", "work_time": "work_time"}
+
+                        dict['otdelenie'] = bankomat.find('div',{'itemprop':'name'}).text
+                        dict['address'] = re.sub('[\n\r\t]','',bankomat.find('div',{'class':'address-title'}).text).replace('  ','').replace(';','')
+                        dict['region'] = region_name
+                        dict['city'] = city_name
+                        result_list.append(dict)
+
+                    if len(all_bankomats) < 12 and i != 0:
+                        break
+
+    return result_list
+
+list = novikom_bankomats()
+write_to_excel(list,'novikom-bankomats.csv')
